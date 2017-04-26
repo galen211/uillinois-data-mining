@@ -1,0 +1,37 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+library(readr)
+
+opts_knit$set(root.dir = normalizePath(".."))
+projDir <- opts_knit$get("root.dir")
+nbDir <- file.path(projDir,"data-visualization")
+dataDir <- file.path(nbDir,"data","assignment_02")
+print(paste("Project Directory: ", projDir))
+print(paste("Notebook Directory: ", nbDir))
+print(paste("Data Directory: ", dataDir))
+```
+
+### Import data
+Arxiv HEP-PH (high energy physics phenomenology ) citation graph is from the e-print arXiv and covers all the citations within a dataset of 34,546 papers with 421,578 edges. If a paper i cites paper j, the graph contains a directed edge from i to j. If a paper cites, or is cited by, a paper outside the dataset, the graph does not contain any information about this.
+
+The data covers papers in the period from January 1993 to April 2003 (124 months). It begins within a few months of the inception of the arXiv, and thus represents essentially the complete history of its HEP-PH section.
+
+Data is downloaded from [Stanford's SNAP repositroy](http://snap.stanford.edu/data/cit-HepPh.html)
+```{r, message=FALSE, warning=FALSE}
+citations <- read_delim(file.path(dataDir,"cit-HepPh.txt"),
+                        "\t", escape_double = FALSE, col_names = FALSE, 
+                        trim_ws = TRUE, skip = 4)
+colnames(citations)<-c("paper_id","citation_id")
+```
+

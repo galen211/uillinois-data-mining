@@ -1,0 +1,30 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+library(readr)
+
+opts_knit$set(root.dir = normalizePath(".."))
+projDir <- opts_knit$get("root.dir")
+nbDir <- file.path(projDir,"data-visualization")
+dataDir <- file.path(nbDir,"data","assignment_01")
+print(paste("Project Directory: ", projDir))
+print(paste("Notebook Directory: ", nbDir))
+print(paste("Data Directory: ", dataDir))
+```
+
+### Import data
+We 
+```{r, message=FALSE, warning=FALSE}
+csv_data <- read_csv(file.path(dataDir,"ExcelFormattedGISTEMPDataCSV.csv"))
+```
+
