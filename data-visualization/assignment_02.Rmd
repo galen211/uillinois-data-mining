@@ -3,35 +3,110 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+### Hillary Clinton's emails (background from [https://www.kaggle.com/kaggle/hillary-clinton-emails](Kaggle))
+Throughout 2015, Hillary Clinton has been embroiled in controversy over the use of personal email accounts on non-government servers during her time as the United States Secretary of State. Some political experts and opponents maintain that Clinton's use of personal email accounts to conduct Secretary of State affairs is in violation of protocols and federal laws that ensure appropriate recordkeeping of government activity. Hillary's campaign has provided their own four sentence summary of her email use here.
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+There have been a number of Freedom of Information lawsuits filed over the State Department's failure to fully release the emails sent and received on Clinton's private accounts. On Monday, August 31, 2015 the State Department released nearly 7,000 pages of Clinton's heavily redacted emails (its biggest release of emails to date).
 
+The documents were released by the State Department as PDFs. We've cleaned and normalized the released documents and are hosting them for public analysis. Kaggle's choice to host this dataset is not meant to express any particular political affiliation or intent.
+
+### Load required libraries for analysis
 ```{r, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(knitr)
 library(ggplot2)
 library(readr)
+library(RSQLite)
+library(network)
+library(sna)
+library(GGally)
+library(dplyr)
 
 opts_knit$set(root.dir = normalizePath(".."))
 projDir <- opts_knit$get("root.dir")
 nbDir <- file.path(projDir,"data-visualization")
 dataDir <- file.path(nbDir,"data","assignment_02")
+figDir <- file.path(nbDir,"figs")
 print(paste("Project Directory: ", projDir))
 print(paste("Notebook Directory: ", nbDir))
 print(paste("Data Directory: ", dataDir))
+print(paste("Figures Directory: ", figDir))
 ```
 
-### Import data
-Arxiv HEP-PH (high energy physics phenomenology ) citation graph is from the e-print arXiv and covers all the citations within a dataset of 34,546 papers with 421,578 edges. If a paper i cites paper j, the graph contains a directed edge from i to j. If a paper cites, or is cited by, a paper outside the dataset, the graph does not contain any information about this.
-
-The data covers papers in the period from January 1993 to April 2003 (124 months). It begins within a few months of the inception of the arXiv, and thus represents essentially the complete history of its HEP-PH section.
-
-Data is downloaded from [Stanford's SNAP repositroy](http://snap.stanford.edu/data/cit-HepPh.html)
-```{r, message=FALSE, warning=FALSE}
-citations <- read_delim(file.path(dataDir,"cit-HepPh.txt"),
-                        "\t", escape_double = FALSE, col_names = FALSE, 
-                        trim_ws = TRUE, skip = 4)
-colnames(citations)<-c("paper_id","citation_id")
+### Initialize connection to `sqllite` database
+```{r}
+drv <- SQLite()
+# connect to the sqlite file
+conn <- dbConnect(drv, dbname=file.path(dataDir,"database.sqlite"))
+# get a list of all tables
+alltables = dbListTables(conn)
 ```
 
+### Get table information from the `sqllite` database
+```{r}
+senders <- dbReadTable(conn, "Aliases")
+receivers <- dbReadTable(conn,"EmailReceivers")
+persons <- dbReadTable(conn,"Persons")
+emails <- dbReadTable(conn,"Emails")
+email_fields <- dbListFields(conn, "Emails")
+email_fields
+```
+
+### Which emails?
+We'll look at a sample of 10 emails that had the most people on the e-mail chain.  We collect the Id's of the email first and then perform a join to get the subject and sender
+```{r}
+top <- receivers %>%
+  group_by(EmailId) %>%
+  summarise(count = n()) %>%
+  top_n(5) 
+
+kable(top)
+```
+
+Code to get the subject and sender
+```{r}
+tj <- top %>%
+  select(EmailId) %>%
+  inner_join(receivers, by=c("EmailId"="EmailId")) %>%
+  select(EmailId,PersonId)
+
+esn <- tj %>%
+  inner_join(persons, by=c("PersonId"="Id"))
+
+esj <- emails %>%
+  select(Id,MetadataSubject) %>%
+  inner_join(esn, by=c("Id"="EmailId"))
+
+esj[esj==""] <- NA
+
+e <- esj %>%
+  select(Name,MetadataSubject) %>%
+  drop_na() %>%
+  rename(subject=MetadataSubject,name=Name) %>%
+  mutate(subject=tolower(subject), name=tolower(name))
+```
+
+
+
+### Create the network object for plotting
+```{r}
+net = network(e, directed = FALSE)
+# email subject
+x = factor(unique(e$subject))
+net %v% "name" = as.character(x)
+
+ggnet2(net, color = "name", alpha = 0.75, size = 4, edge.alpha = 0.5,
+       edge.color = c("color", "grey50"), label = c("hillary clinton","cheryl mills","jake sullivan","huma abedin")) + theme(legend.position = "none") + labs(title = "Top 5 Emails By Number of Recipients from Hillary Clinton Emails") + scale_color_brewer(palette = "Set2")
+
+```
+
+Save down the png file
+```{r}
+ggsave(file.path(figDir,"assignment02.png"), width = 15, height = 8)
+```
+
+
+Code to grab text body from emails sent by Hillary.
+```{r}
+emailsFromHillary <- dbGetQuery(conn, "SELECT ExtractedBodyText EmailBody FROM Emails e INNER JOIN Persons p ON e.SenderPersonId=p.Id WHERE p.Name='Hillary Clinton'  AND e.ExtractedBodyText != '' ORDER BY RANDOM()")
+```

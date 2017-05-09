@@ -17,14 +17,57 @@ opts_knit$set(root.dir = normalizePath(".."))
 projDir <- opts_knit$get("root.dir")
 nbDir <- file.path(projDir,"data-visualization")
 dataDir <- file.path(nbDir,"data","assignment_01")
+figDir <- file.path(nbDir,"figs")
 print(paste("Project Directory: ", projDir))
 print(paste("Notebook Directory: ", nbDir))
 print(paste("Data Directory: ", dataDir))
 ```
 
 ### Import data
-We 
+We import the csv data that is given
 ```{r, message=FALSE, warning=FALSE}
-csv_data <- read_csv(file.path(dataDir,"ExcelFormattedGISTEMPDataCSV.csv"))
+csv_data <- read_csv(file.path(dataDir,"LOTI_zonal_means.csv"))
 ```
+
+### Tidy the data
+We perform data tidying so that all columns contain a single variable type and all rows represent observations
+```{r}
+df <- as_tibble(csv_data)
+df <- df %>%
+  mutate(Year=as.Date(ISOdate(Year,01,01))) %>%
+  gather(Location, Deviation, -Year)
+
+plot_data <- df %>%
+  filter(Location %in% c("90S-64S", "64N-90N", "Glob"))
+
+global_mean <- df %>%
+  filter(Location %in% "Glob")
+```
+
+
+```{r}
+i = 1890
+plot_year <- NULL
+j <- 1
+while(i<2020){
+  plot_year[j] <- as.Date(ISOdate(i,01,01))
+  i <- i+10
+  j <- j+1
+}
+```
+
+LOTI : Land-Ocean Temperature Index                         
+Note: LOTI provides a more realistic representation of the global mean trends than dTs below; it slightly underestimates warming or cooling trends, since the much larger heat capacity of water compared to air causes a slower and diminished reaction to changes; dTs on the other hand overestimates trends, since it disregards most of the dampening effects of the oceans that cover about two thirds of the Earth's surface.
+
+```{r}
+ggplot(data = plot_data, aes(x=Year, y=Deviation, color=Location))+geom_point(aes(color=Location,shape=Location), alpha=0.5)+ geom_smooth(data=global_mean ,aes(x=Year, y=Deviation), method = 'loess', se=FALSE, alpha=1) + scale_x_date(date_breaks = "15 years", date_minor_breaks="5 years", date_labels = "%Y")+scale_color_brewer(palette = "Set1")+ labs(
+  title="Mean Temperature Estimates Based on the Land-Ocean Temperature Index",
+  y="Temperature Anomaly (C)",
+  x="Year")
+```
+
+```{r}
+ggsave(file.path(figDir,"assignment01.png"), width = 8, height = 5)
+```
+
 
